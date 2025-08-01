@@ -1,0 +1,13 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "dev.bat",
+    "server": "go run . --server",
+    "build": "echo 'Go backend - use dev for development'",
+    "lint": "echo 'Go linting would go here'",
+    "clean": "go clean && Remove-Item -Path bin -Recurse -Force -ErrorAction SilentlyContinue"
+  },
+  "devDependencies": {}
+}

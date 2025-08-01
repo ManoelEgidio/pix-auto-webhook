@@ -1,0 +1,218 @@
+# Dependências
+node_modules/
+**/node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.turbo/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===== ARQUIVOS SENSÍVEIS - CREDENCIAIS E CERTIFICADOS =====
+
+# Certificados P12
+*.p12
+*.pfx
+*.pem
+*.crt
+*.key
+*.cer
+*.der
+
+# Arquivos de credenciais JSON
+credentials.json
+sandbox-credentials.json
+production-credentials.json
+**/credentials.json
+**/sandbox-credentials.json
+**/production-credentials.json
+
+# Diretórios de certificados
+certs/
+certificates/
+**/certs/
+**/certificates/
+
+# Arquivos de configuração sensíveis
+config.json
+secrets.json
+**/config.json
+**/secrets.json
+
+# Backend - arquivos específicos
+apps/backend/certs/
+apps/backend/credentials.json
+apps/backend/sandbox-credentials.json
+apps/backend/production-credentials.json
+
+# Frontend - arquivos específicos
+apps/frontend/certs/
+apps/frontend/credentials.json
+
+# ===== ARQUIVOS DE DESENVOLVIMENTO =====
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Go workspace file
+go.work
+
+# ===== ARQUIVOS DE LOG E DEBUG =====
+
+# Logs específicos
+*.log
+debug.log
+error.log
+
+# ===== ARQUIVOS TEMPORÁRIOS =====
+
+# Arquivos temporários do sistema
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# ===== ARQUIVOS DE TESTE =====
+
+# Arquivos de teste que podem conter dados sensíveis
+test-credentials.json
+test-certificates/
+**/test-credentials.json
+**/test-certificates/
+
+# ===== ARQUIVOS DE BACKUP =====
+
+# Backups de certificados e credenciais
+*.backup
+*.old
+*.orig
+
+# ===== ARQUIVOS DE DESENVOLVIMENTO LOCAL =====
+
+# Arquivos locais de desenvolvimento
+local.json
+dev.json
+**/local.json
+**/dev.json
+
+# ===== VERIFICAÇÃO ADICIONAL =====
+
+# Qualquer arquivo que contenha "secret", "password", "key", "cert" no nome
+*secret*
+*password*
+*key*
+*cert*
+*token*
+*credential*
+
+# Arquivos com extensões suspeitas
+*.key
+*.pem
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx 
