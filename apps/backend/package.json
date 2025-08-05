@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "dev.bat",
+    "dev": "powershell -ExecutionPolicy Bypass -File dev.ps1",
     "server": "go run . --server",
     "build": "echo 'Go backend - use dev for development'",
     "lint": "echo 'Go linting would go here'",

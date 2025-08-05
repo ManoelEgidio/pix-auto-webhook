@@ -34,6 +34,7 @@ interface WebhookConfig {
   type: 'charge' | 'recurrence'
   url: string
   status: string
+  createdAt?: string
   totalPings: number
   lastPing?: string
 }
@@ -175,6 +176,9 @@ export function WebhookList({ webhooks, onConfigureWebhook, onDeleteWebhook, loa
                       </Button>
                     </div>
                     <div className="text-xs text-gray-500 space-y-1">
+                      {webhook.createdAt && (
+                        <p>Criado em: {formatDate(webhook.createdAt)}</p>
+                      )}
                       <p>Total de pings: {webhook.totalPings}</p>
                       {webhook.lastPing && (
                         <p>Último ping: {formatDate(webhook.lastPing)}</p>

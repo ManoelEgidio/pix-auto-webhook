@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	"pix_cli/configs"
 	"pix_cli/controllers"
 	"pix_cli/services"
 	"pix_cli/utils"
@@ -22,10 +21,12 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--server" {
 		log.Println("🚀 Iniciando servidor HTTP...")
 
-		credentials, err := configs.LoadCredentials()
+		credentials, err := services.LoadCredentials()
 		if err != nil {
 			log.Printf("⚠️  Aviso: Não foi possível carregar credenciais: %v", err)
 			log.Println("📝 Configure as variáveis de ambiente para usar a API EFI")
+		} else {
+			log.Printf("✅ Credenciais carregadas com sucesso: %+v", credentials)
 		}
 
 		var efiService *services.EFIService
@@ -33,6 +34,8 @@ func main() {
 			efiService, err = services.NewEFIService(credentials)
 			if err != nil {
 				log.Printf("⚠️  Aviso: Não foi possível inicializar serviço EFI: %v", err)
+			} else {
+				log.Printf("✅ Serviço EFI inicializado com sucesso")
 			}
 		}
 
@@ -47,7 +50,7 @@ func main() {
 			utils.PrintError(err.Error())
 		}
 
-		credentials, err := configs.LoadCredentials()
+		credentials, err := services.LoadCredentials()
 		if err != nil {
 			utils.PrintError(err.Error())
 		}

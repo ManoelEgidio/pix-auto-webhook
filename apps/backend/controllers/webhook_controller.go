@@ -17,6 +17,12 @@ func NewWebhookController(efiService *services.EFIService) *WebhookController {
 		efiService: efiService,
 	}
 }
+
+// GetEFIService retorna o serviço EFI
+func (c *WebhookController) GetEFIService() *services.EFIService {
+	return c.efiService
+}
+
 func (c *WebhookController) ConfigWebhook(webhookType models.WebhookType, webhookURL string) error {
 	if webhookURL == "" {
 		return fmt.Errorf("URL do webhook é obrigatória")
@@ -66,11 +72,24 @@ func (c *WebhookController) ListWebhook(webhookType models.WebhookType) error {
 
 	response, err := c.efiService.ListWebhook(webhookType)
 	if err != nil {
+		// Se for 404, significa que não há webhook configurado (normal)
+		if response != nil && response.Code == 404 {
+			fmt.Printf("📋 Nenhum webhook %s configurado\n", webhookType)
+			return nil
+		}
 		return fmt.Errorf("erro ao listar webhooks: %v", err)
 	}
 
-	fmt.Printf("📋 Webhooks %s configurados:\n", webhookType)
-	fmt.Printf("📊 Resposta: %+v\n", response.Data)
+	// Se retornou 200, mostra os dados do webhook
+	if response.Code == 200 {
+		fmt.Printf("📋 Webhook %s configurado:\n", webhookType)
+		fmt.Printf("📊 URL: %v\n", response.Data["webhookUrl"])
+		fmt.Printf("📊 Criação: %v\n", response.Data["criacao"])
+	} else {
+		fmt.Printf("📋 Webhooks %s configurados:\n", webhookType)
+		fmt.Printf("📊 Resposta: %+v\n", response.Data)
+	}
+
 	return nil
 }
 

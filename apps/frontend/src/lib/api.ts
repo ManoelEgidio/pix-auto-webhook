@@ -6,6 +6,7 @@ export interface WebhookConfig {
   type: 'charge' | 'recurrence'
   url: string
   status: 'active' | 'inactive' | 'error'
+  createdAt?: string
   lastPing?: string
   totalPings: number
 }
@@ -53,23 +54,26 @@ class ApiClient {
   }
 
   // Configurar webhook
-  async configWebhook(type: 'charge' | 'recurrence', url: string): Promise<ApiResponse<any>> {
+  async configWebhook(type: 'charge' | 'recurrence', url: string, env?: 'sandbox' | 'production'): Promise<ApiResponse<any>> {
+    const body = env ? { type, url, env } : { type, url }
     return this.request('/api/webhook/config', {
       method: 'POST',
-      body: JSON.stringify({ type, url }),
+      body: JSON.stringify(body),
     })
   }
 
   // Listar webhooks
-  async listWebhooks(type: 'charge' | 'recurrence'): Promise<ApiResponse<any>> {
-    return this.request(`/api/webhook/list?type=${type}`)
+  async listWebhooks(type: 'charge' | 'recurrence', env?: 'sandbox' | 'production'): Promise<ApiResponse<any>> {
+    const url = env ? `/api/webhook/list?type=${type}&env=${env}` : `/api/webhook/list?type=${type}`
+    return this.request(url)
   }
 
   // Deletar webhook
-  async deleteWebhook(type: 'charge' | 'recurrence'): Promise<ApiResponse<any>> {
+  async deleteWebhook(type: 'charge' | 'recurrence', env?: 'sandbox' | 'production'): Promise<ApiResponse<any>> {
+    const body = env ? { type, env } : { type }
     return this.request('/api/webhook/delete', {
       method: 'DELETE',
-      body: JSON.stringify({ type }),
+      body: JSON.stringify(body),
     })
   }
 
@@ -81,6 +85,14 @@ class ApiClient {
   // Obter status do sistema
   async getSystemStatus(): Promise<ApiResponse<any>> {
     return this.request('/api/status')
+  }
+
+  // Recarregar serviço EFI
+  async reloadService(env?: 'sandbox' | 'production'): Promise<ApiResponse<any>> {
+    const url = env ? `/api/reload-service?env=${env}` : '/api/reload-service'
+    return this.request(url, {
+      method: 'POST',
+    })
   }
 }
 

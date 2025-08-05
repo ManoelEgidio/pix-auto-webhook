@@ -3,15 +3,16 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Zap } from 'lucide-react'
+import { Zap, RefreshCw } from 'lucide-react'
 
 interface HeaderProps {
   systemStatus: { backend: string; efi: string }
   credentials: { sandbox: boolean }
   onEnvironmentChange: (sandbox: boolean) => void
+  onRefresh?: () => void
 }
 
-export function Header({ systemStatus, credentials, onEnvironmentChange }: HeaderProps) {
+export function Header({ systemStatus, credentials, onEnvironmentChange, onRefresh }: HeaderProps) {
   return (
     <div className="mb-8">
       <div className="flex items-center gap-3 mb-4">
@@ -62,6 +63,18 @@ export function Header({ systemStatus, credentials, onEnvironmentChange }: Heade
             </span>
           </div>
         </div>
+        
+        {onRefresh && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Atualizar
+          </Button>
+        )}
       </div>
     </div>
   )

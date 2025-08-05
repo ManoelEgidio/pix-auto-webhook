@@ -66,50 +66,72 @@ export default function Home() {
   }
 
   const loadWebhooks = async () => {
+    // Limpa a lista antes de carregar
+    setWebhooks([])
+    
+    const webhookList: WebhookConfig[] = []
+    const currentEnv = credentials.sandbox ? 'sandbox' : 'production'
+    
     try {
-      const chargeResponse = await apiClient.listWebhooks('charge')
-      const recurrenceResponse = await apiClient.listWebhooks('recurrence')
+      const chargeResponse = await apiClient.listWebhooks('charge', currentEnv)
       
-      const webhookList: WebhookConfig[] = []
-      
-      console.log('Resposta da API - Charge:', chargeResponse)
-      console.log('Resposta da API - Recurrence:', recurrenceResponse)
-      
-      if (chargeResponse.success && chargeResponse.data && !chargeResponse.data.nome) {
-        console.log('Webhooks de cobrança encontrados:', chargeResponse.data)
+      if (chargeResponse.success && chargeResponse.data?.data) {
+        if (chargeResponse.data.data.exists && chargeResponse.data.data.webhookUrl) {
+          webhookList.push({
+            id: 'charge',
+            type: 'charge',
+            url: chargeResponse.data.data.webhookUrl,
+            createdAt: chargeResponse.data.data.criacao,
+            status: 'active',
+            totalPings: 0
+          })
+        }
       }
-      
-      if (recurrenceResponse.success && recurrenceResponse.data && !recurrenceResponse.data.nome) {
-        console.log('Webhooks de recorrência encontrados:', recurrenceResponse.data)
-      }
-      
-      setWebhooks(webhookList)
     } catch (error) {
-      console.error('Erro ao carregar webhooks:', error)
+      console.error('Erro ao carregar webhook de cobrança:', error)
     }
+    
+    try {
+      const recurrenceResponse = await apiClient.listWebhooks('recurrence', currentEnv)
+      
+      if (recurrenceResponse.success && recurrenceResponse.data?.data) {
+        if (recurrenceResponse.data.data.exists && recurrenceResponse.data.data.webhookUrl) {
+          webhookList.push({
+            id: 'recurrence',
+            type: 'recurrence',
+            url: recurrenceResponse.data.data.webhookUrl,
+            createdAt: recurrenceResponse.data.data.criacao,
+            status: 'active',
+            totalPings: 0
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar webhook de recorrência:', error)
+    }
+    
+    setWebhooks(webhookList)
   }
 
   const loadCredentials = async () => {
     try {
-      const sandboxResponse = await fetch('http://localhost:8081/api/load-credentials?env=sandbox')
-      if (sandboxResponse.ok) {
-        const sandboxData = await sandboxResponse.json()
-        if (sandboxData.success && sandboxData.data) {
-          setSandboxCredentials({
-            clientId: sandboxData.data.client_id || '',
-            clientSecret: sandboxData.data.client_secret || '',
-          })
-        }
-      }
+      const currentEnv = credentials.sandbox ? 'sandbox' : 'production'
       
-      const productionResponse = await fetch('http://localhost:8081/api/load-credentials?env=production')
-      if (productionResponse.ok) {
-        const productionData = await productionResponse.json()
-        if (productionData.success && productionData.data) {
-          setProductionCredentials({
-            clientId: productionData.data.client_id || '',
-            clientSecret: productionData.data.client_secret || '',
-          })
+      const response = await fetch(`http://localhost:8081/api/load-credentials?env=${currentEnv}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data) {
+          if (credentials.sandbox) {
+            setSandboxCredentials({
+              clientId: data.data.client_id || '',
+              clientSecret: data.data.client_secret || '',
+            })
+          } else {
+            setProductionCredentials({
+              clientId: data.data.client_id || '',
+              clientSecret: data.data.client_secret || '',
+            })
+          }
         }
       }
     } catch (error) {
@@ -119,31 +141,29 @@ export default function Home() {
 
   const checkCertificateStatus = async () => {
     try {
-      const sandboxResponse = await fetch('http://localhost:8081/api/certificate-status?env=sandbox')
-      if (sandboxResponse.ok) {
-        const sandboxData = await sandboxResponse.json()
-        if (sandboxData.success) {
-          setCertificateStatus(prev => ({
-            ...prev,
-            sandbox: {
-              exists: sandboxData.data.exists,
-              path: sandboxData.data.path || ''
-            }
-          }))
-        }
-      }
+      const currentEnv = credentials.sandbox ? 'sandbox' : 'production'
       
-      const productionResponse = await fetch('http://localhost:8081/api/certificate-status?env=production')
-      if (productionResponse.ok) {
-        const productionData = await productionResponse.json()
-        if (productionData.success) {
-          setCertificateStatus(prev => ({
-            ...prev,
-            production: {
-              exists: productionData.data.exists,
-              path: productionData.data.path || ''
-            }
-          }))
+      const response = await fetch(`http://localhost:8081/api/certificate-status?env=${currentEnv}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          if (credentials.sandbox) {
+            setCertificateStatus(prev => ({
+              ...prev,
+              sandbox: {
+                exists: data.data.exists,
+                path: data.data.path || ''
+              }
+            }))
+          } else {
+            setCertificateStatus(prev => ({
+              ...prev,
+              production: {
+                exists: data.data.exists,
+                path: data.data.path || ''
+              }
+            }))
+          }
         }
       }
     } catch (error) {
@@ -154,34 +174,30 @@ export default function Home() {
   const handleConfigureWebhook = async (type: 'charge' | 'recurrence', url: string) => {
     setLoading(true)
     try {
-      const response = await apiClient.configWebhook(type, url)
+      const currentEnv = credentials.sandbox ? 'sandbox' : 'production'
+      const response = await apiClient.configWebhook(type, url, currentEnv)
       
       if (response.success) {
-        const newHook: WebhookConfig = {
-          id: Date.now().toString(),
-          type,
-          url,
-          status: 'active',
-          totalPings: 0
-        }
-        setWebhooks(prev => [...prev, newHook])
         toast({
-          title: '✅ Webhook configurado com sucesso!',
-          description: 'Webhook configurado com sucesso.',
+          title: "✅ Sucesso!",
+          description: `Webhook ${type} configurado com sucesso`,
         })
+        
+        // Recarrega a lista de webhooks
+        await loadWebhooks()
       } else {
         toast({
-          title: '❌ Erro ao configurar webhook',
-          description: response.error,
-          variant: 'destructive',
+          title: "❌ Erro",
+          description: response.error || "Erro ao configurar webhook",
+          variant: "destructive",
         })
       }
     } catch (error) {
       console.error('Erro ao configurar webhook:', error)
       toast({
-        title: '❌ Erro ao configurar webhook',
-        description: 'Erro ao configurar webhook',
-        variant: 'destructive',
+        title: "❌ Erro",
+        description: "Erro ao configurar webhook",
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -189,31 +205,32 @@ export default function Home() {
   }
 
   const handleDeleteWebhook = async (id: string) => {
-    const webhook = webhooks.find(w => w.id === id)
-    if (!webhook) return
     setLoading(true)
     try {
-      const response = await apiClient.deleteWebhook(webhook.type)
+      const currentEnv = credentials.sandbox ? 'sandbox' : 'production'
+      const response = await apiClient.deleteWebhook(id as 'charge' | 'recurrence', currentEnv)
       
       if (response.success) {
-        setWebhooks(prev => prev.filter(w => w.id !== id))
         toast({
-          title: '✅ Webhook excluído com sucesso!',
-          description: 'Webhook excluído com sucesso.',
+          title: "✅ Sucesso!",
+          description: `Webhook ${id} removido com sucesso`,
         })
+        
+        // Recarrega a lista de webhooks
+        await loadWebhooks()
       } else {
         toast({
-          title: '❌ Erro ao deletar webhook',
-          description: response.error,
-          variant: 'destructive',
+          title: "❌ Erro",
+          description: response.error || "Erro ao remover webhook",
+          variant: "destructive",
         })
       }
     } catch (error) {
-      console.error('Erro ao deletar webhook:', error)
+      console.error('Erro ao remover webhook:', error)
       toast({
-        title: '❌ Erro ao deletar webhook',
-        description: 'Erro ao deletar webhook',
-        variant: 'destructive',
+        title: "❌ Erro",
+        description: "Erro ao remover webhook",
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -350,6 +367,139 @@ export default function Home() {
     }
   }
 
+  const handleEnvironmentChange = async (sandbox: boolean) => {
+    console.log('🔄 MUDANDO AMBIENTE:', sandbox ? 'sandbox' : 'production')
+    
+    // Atualiza o estado ANTES de fazer qualquer requisição
+    setCredentials({ sandbox })
+    
+    // Limpa a lista de webhooks imediatamente
+    setWebhooks([])
+    
+    // Recarrega o serviço EFI primeiro com o ambiente correto
+    const currentEnv = sandbox ? 'sandbox' : 'production'
+    try {
+      await apiClient.reloadService(currentEnv)
+    } catch (error) {
+      console.error('Erro ao recarregar serviço:', error)
+    }
+    
+    // Recarrega tudo quando mudar o ambiente usando o ambiente correto
+    
+    // Recarrega webhooks com o ambiente correto
+    await loadWebhooksWithEnv(currentEnv)
+    
+    // Recarrega credenciais com o ambiente correto
+    await loadCredentialsWithEnv(currentEnv)
+    
+    // Recarrega certificado com o ambiente correto
+    await checkCertificateStatusWithEnv(currentEnv)
+    
+    // Recarrega status do sistema
+    await loadSystemStatus()
+  }
+
+  const loadWebhooksWithEnv = async (env: 'sandbox' | 'production') => {
+    // Limpa a lista antes de carregar
+    setWebhooks([])
+    
+    const webhookList: WebhookConfig[] = []
+    
+    try {
+      const chargeResponse = await apiClient.listWebhooks('charge', env)
+      
+      if (chargeResponse.success && chargeResponse.data?.data) {
+        if (chargeResponse.data.data.exists && chargeResponse.data.data.webhookUrl) {
+          webhookList.push({
+            id: 'charge',
+            type: 'charge',
+            url: chargeResponse.data.data.webhookUrl,
+            createdAt: chargeResponse.data.data.criacao,
+            status: 'active',
+            totalPings: 0
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar webhook de cobrança:', error)
+    }
+    
+    try {
+      const recurrenceResponse = await apiClient.listWebhooks('recurrence', env)
+      
+      if (recurrenceResponse.success && recurrenceResponse.data?.data) {
+        if (recurrenceResponse.data.data.exists && recurrenceResponse.data.data.webhookUrl) {
+          webhookList.push({
+            id: 'recurrence',
+            type: 'recurrence',
+            url: recurrenceResponse.data.data.webhookUrl,
+            createdAt: recurrenceResponse.data.data.criacao,
+            status: 'active',
+            totalPings: 0
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar webhook de recorrência:', error)
+    }
+    
+    setWebhooks(webhookList)
+  }
+
+  const loadCredentialsWithEnv = async (env: 'sandbox' | 'production') => {
+    try {
+      const response = await fetch(`http://localhost:8081/api/load-credentials?env=${env}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data) {
+          if (env === 'sandbox') {
+            setSandboxCredentials({
+              clientId: data.data.client_id || '',
+              clientSecret: data.data.client_secret || '',
+            })
+          } else {
+            setProductionCredentials({
+              clientId: data.data.client_id || '',
+              clientSecret: data.data.client_secret || '',
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar credenciais:', error)
+    }
+  }
+
+  const checkCertificateStatusWithEnv = async (env: 'sandbox' | 'production') => {
+    try {
+      const response = await fetch(`http://localhost:8081/api/certificate-status?env=${env}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          if (env === 'sandbox') {
+            setCertificateStatus(prev => ({
+              ...prev,
+              sandbox: {
+                exists: data.data.exists,
+                path: data.data.path || ''
+              }
+            }))
+          } else {
+            setCertificateStatus(prev => ({
+              ...prev,
+              production: {
+                exists: data.data.exists,
+                path: data.data.path || ''
+              }
+            }))
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao verificar certificado:', error)
+    }
+  }
+
   if (initialLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -367,7 +517,8 @@ export default function Home() {
         <Header 
           systemStatus={systemStatus}
           credentials={credentials}
-          onEnvironmentChange={(sandbox) => setCredentials(prev => ({ ...prev, sandbox }))}
+          onEnvironmentChange={handleEnvironmentChange}
+          onRefresh={() => loadWebhooks()}
         />
 
         <ProductionWarning isProduction={!credentials.sandbox} />

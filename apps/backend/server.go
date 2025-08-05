@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"pix_cli/controllers"
+	"pix_cli/services"
 )
 
 type Server struct {
@@ -23,6 +24,46 @@ func NewServer(controller *controllers.WebhookController, port int) *Server {
 		controller: controller,
 		port:       port,
 	}
+}
+
+// reloadEFIService recarrega o serviço EFI com as credenciais atualizadas
+func (s *Server) reloadEFIService() error {
+	credentials, err := services.LoadCredentials()
+	if err != nil {
+		return fmt.Errorf("erro ao recarregar credenciais: %v", err)
+	}
+
+	efiService, err := services.NewEFIService(credentials)
+	if err != nil {
+		return fmt.Errorf("erro ao recriar serviço EFI: %v", err)
+	}
+
+	// Recria o controller com o novo serviço
+	s.controller = controllers.NewWebhookController(efiService)
+	return nil
+}
+
+func (s *Server) reloadEFIServiceWithEnv(env string) error {
+	log.Printf("🔄 [reloadEFIServiceWithEnv] Recarregando serviço EFI para ambiente: %s", env)
+
+	credentials, err := services.LoadCredentialsWithEnv(env)
+	if err != nil {
+		log.Printf("❌ [reloadEFIServiceWithEnv] Erro ao carregar credenciais: %v", err)
+		return fmt.Errorf("erro ao recarregar credenciais: %v", err)
+	}
+	log.Printf("✅ [reloadEFIServiceWithEnv] Credenciais carregadas: %+v", credentials)
+
+	efiService, err := services.NewEFIService(credentials)
+	if err != nil {
+		log.Printf("❌ [reloadEFIServiceWithEnv] Erro ao criar serviço EFI: %v", err)
+		return fmt.Errorf("erro ao recriar serviço EFI: %v", err)
+	}
+	log.Printf("✅ [reloadEFIServiceWithEnv] Serviço EFI criado com sucesso")
+
+	// Recria o controller com o novo serviço
+	s.controller = controllers.NewWebhookController(efiService)
+	log.Printf("✅ [reloadEFIServiceWithEnv] Controller recriado com sucesso")
+	return nil
 }
 
 func (s *Server) Start() error {
@@ -76,6 +117,8 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		s.handleLoadCredentials(w, r)
 	case path == "/api/certificate-status" && r.Method == "GET":
 		s.handleCertificateStatus(w, r)
+	case path == "/api/reload-service" && r.Method == "POST":
+		s.handleReloadService(w, r)
 	default:
 		s.sendError(w, "Endpoint não encontrado", http.StatusNotFound)
 	}
@@ -91,10 +134,29 @@ func (s *Server) handleConfigWebhook(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Type string `json:"type"`
 		URL  string `json:"url"`
+		Env  string `json:"env"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.sendError(w, "Erro ao decodificar requisição", http.StatusBadRequest)
+		return
+	}
+
+	// Get environment from request body
+	env := req.Env
+	if env == "" {
+		env = "sandbox" // Default to sandbox
+	}
+
+	// Validate environment
+	if env != "sandbox" && env != "production" {
+		s.sendError(w, "Ambiente inválido. Use 'sandbox' ou 'production'", http.StatusBadRequest)
+		return
+	}
+
+	// Recarrega o serviço com o ambiente correto
+	if err := s.reloadEFIServiceWithEnv(env); err != nil {
+		s.sendError(w, fmt.Sprintf("Erro ao recarregar serviço: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -129,21 +191,62 @@ func (s *Server) handleListWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get environment from query parameter
+	env := r.URL.Query().Get("env")
+	if env == "" {
+		env = "sandbox" // Default to sandbox
+	}
+
+	// Validate environment
+	if env != "sandbox" && env != "production" {
+		s.sendError(w, "Ambiente inválido. Use 'sandbox' ou 'production'", http.StatusBadRequest)
+		return
+	}
+
+	// Recarrega o serviço com o ambiente correto
+	if err := s.reloadEFIServiceWithEnv(env); err != nil {
+		s.sendError(w, fmt.Sprintf("Erro ao recarregar serviço: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	wt, err := s.controller.ValidateWebhookType(webhookType)
 	if err != nil {
 		s.sendError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := s.controller.ListWebhook(wt); err != nil {
+	// Chama o serviço diretamente para obter os dados
+	response, err := s.controller.GetEFIService().ListWebhook(wt)
+	if err != nil {
+		// Se for 404, significa que não há webhook configurado (normal)
+		if response != nil && response.Code == 404 {
+			s.sendSuccess(w, map[string]interface{}{
+				"type":    webhookType,
+				"exists":  false,
+				"message": fmt.Sprintf("Nenhum webhook %s configurado", webhookType),
+			})
+			return
+		}
 		s.sendError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	s.sendSuccess(w, map[string]interface{}{
-		"message": fmt.Sprintf("Webhooks %s listados", webhookType),
-		"type":    webhookType,
-	})
+	// Se retornou 200, retorna os dados do webhook
+	if response.Code == 200 {
+		s.sendSuccess(w, map[string]interface{}{
+			"type":       webhookType,
+			"exists":     true,
+			"webhookUrl": response.Data["webhookUrl"],
+			"criacao":    response.Data["criacao"],
+			"message":    fmt.Sprintf("Webhook %s encontrado", webhookType),
+		})
+	} else {
+		s.sendSuccess(w, map[string]interface{}{
+			"type":    webhookType,
+			"exists":  false,
+			"message": fmt.Sprintf("Nenhum webhook %s configurado", webhookType),
+		})
+	}
 }
 
 // handleDeleteWebhook remove um webhook
@@ -155,10 +258,29 @@ func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Type string `json:"type"`
+		Env  string `json:"env"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.sendError(w, "Erro ao decodificar requisição", http.StatusBadRequest)
+		return
+	}
+
+	// Get environment from request body
+	env := req.Env
+	if env == "" {
+		env = "sandbox" // Default to sandbox
+	}
+
+	// Validate environment
+	if env != "sandbox" && env != "production" {
+		s.sendError(w, "Ambiente inválido. Use 'sandbox' ou 'production'", http.StatusBadRequest)
+		return
+	}
+
+	// Recarrega o serviço com o ambiente correto
+	if err := s.reloadEFIServiceWithEnv(env); err != nil {
+		s.sendError(w, fmt.Sprintf("Erro ao recarregar serviço: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -274,6 +396,12 @@ func (s *Server) handleUploadCertificate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Recarrega o serviço EFI após o upload do certificado
+	if err := s.reloadEFIServiceWithEnv(env); err != nil {
+		s.sendError(w, "Erro ao recarregar serviço EFI após upload do certificado", http.StatusInternalServerError)
+		return
+	}
+
 	s.sendSuccess(w, map[string]interface{}{
 		"message": fmt.Sprintf("Certificado %s enviado com sucesso", env),
 		"path":    certPath,
@@ -337,6 +465,12 @@ func (s *Server) handleSaveCredentials(w http.ResponseWriter, r *http.Request) {
 
 	if err := os.WriteFile(configPath, configBytes, 0644); err != nil {
 		s.sendError(w, "Erro ao salvar arquivo de configuração", http.StatusInternalServerError)
+		return
+	}
+
+	// Recarrega o serviço EFI após salvar as credenciais
+	if err := s.reloadEFIServiceWithEnv(env); err != nil {
+		s.sendError(w, "Erro ao recarregar serviço EFI após salvar credenciais", http.StatusInternalServerError)
 		return
 	}
 
@@ -425,6 +559,31 @@ func (s *Server) handleCertificateStatus(w http.ResponseWriter, r *http.Request)
 		"exists": true,
 		"path":   certPath,
 		"env":    env,
+	})
+}
+
+// handleReloadService recarrega o serviço EFI
+func (s *Server) handleReloadService(w http.ResponseWriter, r *http.Request) {
+	// Get environment from query parameter
+	env := r.URL.Query().Get("env")
+	if env == "" {
+		env = "sandbox" // Default to sandbox
+	}
+
+	// Validate environment
+	if env != "sandbox" && env != "production" {
+		s.sendError(w, "Ambiente inválido. Use 'sandbox' ou 'production'", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.reloadEFIServiceWithEnv(env); err != nil {
+		s.sendError(w, fmt.Sprintf("Erro ao recarregar serviço: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	s.sendSuccess(w, map[string]interface{}{
+		"message": fmt.Sprintf("Serviço EFI recarregado com sucesso para ambiente: %s", env),
+		"env":     env,
 	})
 }
 
