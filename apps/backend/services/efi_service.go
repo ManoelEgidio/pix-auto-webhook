@@ -20,7 +20,6 @@ import (
 	"pix_cli/models"
 )
 
-// Credentials representa as credenciais da API EFI
 type Credentials struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
@@ -39,7 +38,6 @@ type EFIService struct {
 func NewEFIService(credentials *Credentials) (*EFIService, error) {
 	log.Printf("🔧 [NewEFIService] Iniciando serviço EFI com credenciais: %+v", credentials)
 
-	// Verificar se o certificado existe
 	if _, err := os.Stat(credentials.Certificate); os.IsNotExist(err) {
 		log.Printf("❌ [NewEFIService] Certificado não encontrado: %s", credentials.Certificate)
 		return nil, fmt.Errorf("certificado não encontrado: %s", credentials.Certificate)
@@ -70,7 +68,7 @@ func NewEFIService(credentials *Credentials) (*EFIService, error) {
 	tlsConfig := &tls.Config{
 		Certificates:       []tls.Certificate{tlsCert},
 		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: false, // Mantém verificação SSL
+		InsecureSkipVerify: false, 
 	}
 
 	client := &http.Client{
@@ -93,7 +91,6 @@ func NewEFIService(credentials *Credentials) (*EFIService, error) {
 		baseURL:     baseURL,
 	}
 
-	// Obter access token
 	log.Printf("🔐 [NewEFIService] Iniciando processo de OAuth2...")
 	if err := efiService.getAccessToken(); err != nil {
 		log.Printf("❌ [NewEFIService] Erro ao obter access token: %v", err)
@@ -105,13 +102,11 @@ func NewEFIService(credentials *Credentials) (*EFIService, error) {
 	return efiService, nil
 }
 
-// getAccessToken obtém o access token via OAuth2
 func (s *EFIService) getAccessToken() error {
 	authURL := s.baseURL + "/oauth/token"
 	log.Printf("🔐 [getAccessToken] Fazendo requisição OAuth2 para: %s", authURL)
 	log.Printf("🔐 [getAccessToken] Usando credenciais - ClientID: %s, Sandbox: %v", s.credentials.ClientID, s.credentials.Sandbox)
 
-	// Dados para OAuth2
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")
 
@@ -121,7 +116,6 @@ func (s *EFIService) getAccessToken() error {
 		return fmt.Errorf("erro ao criar requisição OAuth: %v", err)
 	}
 
-	// Basic Auth para obter o token
 	auth := s.credentials.ClientID + ":" + s.credentials.ClientSecret
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(auth)))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -163,7 +157,6 @@ func (s *EFIService) getAccessToken() error {
 	return nil
 }
 
-// ExecuteWebhookCommand executa um comando de webhook (endpoints v2 da EFI)
 func (s *EFIService) ExecuteWebhookCommand(cmd *models.WebhookCommand) (*models.WebhookResponse, error) {
 	var endpoint string
 	var method string
@@ -201,7 +194,6 @@ func (s *EFIService) ExecuteWebhookCommand(cmd *models.WebhookCommand) (*models.
 		return nil, fmt.Errorf("tipo de webhook não suportado: %s", cmd.Type)
 	}
 
-	// Prepara o body da requisição (endpoints v2)
 	var bodyData map[string]interface{}
 	var jsonBody []byte
 	var err error
@@ -218,7 +210,6 @@ func (s *EFIService) ExecuteWebhookCommand(cmd *models.WebhookCommand) (*models.
 
 	url := s.baseURL + "/v2/" + endpoint
 
-	// LOG ESSENCIAL
 	log.Printf("🔍 [EFI API] %s %s", method, url)
 
 	var req *http.Request
@@ -232,28 +223,23 @@ func (s *EFIService) ExecuteWebhookCommand(cmd *models.WebhookCommand) (*models.
 		return nil, fmt.Errorf("erro ao criar requisição: %v", err)
 	}
 
-	// Adiciona headers como no SDK Java
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.accessToken)
-	req.Header.Set("x-skip-mtls-checking", "true") // Como no Java
+	req.Header.Set("x-skip-mtls-checking", "true") 
 
-	// Executa a requisição
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao executar requisição: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Lê a resposta
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler resposta: %v", err)
 	}
 
-	// LOG ESSENCIAL
 	log.Printf("📡 [EFI API] Status: %d | Response: %s", resp.StatusCode, string(respBody))
 
-	// Parse da resposta JSON
 	var responseData map[string]interface{}
 	if err := json.Unmarshal(respBody, &responseData); err != nil {
 		log.Printf("⚠️ [EFI API] Aviso: não foi possível fazer parse da resposta JSON: %v", err)
@@ -270,13 +256,11 @@ func (s *EFIService) ExecuteWebhookCommand(cmd *models.WebhookCommand) (*models.
 	}, nil
 }
 
-// getBasicAuth retorna a autenticação básica em base64
 func (s *EFIService) getBasicAuth() string {
 	auth := s.credentials.ClientID + ":" + s.credentials.ClientSecret
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-// ConfigWebhook configura um webhook
 func (s *EFIService) ConfigWebhook(webhookType models.WebhookType, webhookURL string) (*models.WebhookResponse, error) {
 	cmd := &models.WebhookCommand{
 		Type:   webhookType,
@@ -291,7 +275,6 @@ func (s *EFIService) ConfigWebhook(webhookType models.WebhookType, webhookURL st
 	return s.ExecuteWebhookCommand(cmd)
 }
 
-// DeleteWebhook remove um webhook
 func (s *EFIService) DeleteWebhook(webhookType models.WebhookType) (*models.WebhookResponse, error) {
 	cmd := &models.WebhookCommand{
 		Type:   webhookType,
@@ -303,7 +286,6 @@ func (s *EFIService) DeleteWebhook(webhookType models.WebhookType) (*models.Webh
 	return s.ExecuteWebhookCommand(cmd)
 }
 
-// ListWebhook lista os webhooks configurados
 func (s *EFIService) ListWebhook(webhookType models.WebhookType) (*models.WebhookResponse, error) {
 	cmd := &models.WebhookCommand{
 		Type:   webhookType,
@@ -315,9 +297,7 @@ func (s *EFIService) ListWebhook(webhookType models.WebhookType) (*models.Webhoo
 	return s.ExecuteWebhookCommand(cmd)
 }
 
-// LoadCredentials carrega as credenciais do arquivo JSON
 func LoadCredentials() (*Credentials, error) {
-	// Default to sandbox environment
 	env := "sandbox"
 
 	configDir := "./config"
@@ -337,14 +317,12 @@ func LoadCredentials() (*Credentials, error) {
 		return nil, fmt.Errorf("erro ao decodificar credenciais do arquivo: %v", err)
 	}
 
-	// Set certificate path
 	certsDir := "./certs"
 	creds.Certificate = filepath.Join(certsDir, fmt.Sprintf("certificado_%s.p12", env))
 
 	return &creds, nil
 }
 
-// LoadCredentialsWithEnv carrega as credenciais do arquivo JSON para um ambiente específico
 func LoadCredentialsWithEnv(env string) (*Credentials, error) {
 	fmt.Printf("🔍 [LoadCredentialsWithEnv] Carregando credenciais para ambiente: %s\n", env)
 
@@ -367,7 +345,6 @@ func LoadCredentialsWithEnv(env string) (*Credentials, error) {
 		return nil, fmt.Errorf("erro ao decodificar credenciais do arquivo: %v", err)
 	}
 
-	// Set certificate path
 	certsDir := "./certs"
 	creds.Certificate = filepath.Join(certsDir, fmt.Sprintf("certificado_%s.p12", env))
 

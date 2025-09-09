@@ -15,6 +15,7 @@ export interface ApiResponse<T> {
   success: boolean
   data?: T
   error?: string
+  status?: number
 }
 
 class ApiClient {
@@ -28,28 +29,30 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    const url = `${this.baseUrl}${endpoint}`
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    })
+
+    let payload: any = undefined
     try {
-      const url = `${this.baseUrl}${endpoint}`
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        ...options,
-      })
+      payload = await response.json()
+    } catch {}
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+    if (response.ok) {
+      return { success: true, data: payload }
+    }
 
-      const data = await response.json()
-      return { success: true, data }
-    } catch (error) {
-      console.error('API Error:', error)
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Erro desconhecido' 
-      }
+    // Não lançar erro para evitar overlay do Next; repassar estrutura
+    return {
+      success: false,
+      data: payload,
+      error: payload?.error || `HTTP ${response.status}`,
+      status: response.status,
     }
   }
 

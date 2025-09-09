@@ -18,7 +18,6 @@ func NewWebhookController(efiService *services.EFIService) *WebhookController {
 	}
 }
 
-// GetEFIService retorna o serviço EFI
 func (c *WebhookController) GetEFIService() *services.EFIService {
 	return c.efiService
 }
@@ -44,7 +43,6 @@ func (c *WebhookController) ConfigWebhook(webhookType models.WebhookType, webhoo
 	return nil
 }
 
-// DeleteWebhook remove um webhook (endpoints v2 da EFI)
 func (c *WebhookController) DeleteWebhook(webhookType models.WebhookType) error {
 	if c.efiService == nil {
 		return fmt.Errorf("serviço EFI não está disponível - configure as credenciais")
@@ -62,7 +60,6 @@ func (c *WebhookController) DeleteWebhook(webhookType models.WebhookType) error 
 	return nil
 }
 
-// ListWebhook lista os webhooks configurados (endpoints v2 da EFI)
 func (c *WebhookController) ListWebhook(webhookType models.WebhookType) error {
 	if c.efiService == nil {
 		return fmt.Errorf("serviço EFI não está disponível - configure as credenciais")
@@ -72,7 +69,6 @@ func (c *WebhookController) ListWebhook(webhookType models.WebhookType) error {
 
 	response, err := c.efiService.ListWebhook(webhookType)
 	if err != nil {
-		// Se for 404, significa que não há webhook configurado (normal)
 		if response != nil && response.Code == 404 {
 			fmt.Printf("📋 Nenhum webhook %s configurado\n", webhookType)
 			return nil
@@ -80,7 +76,6 @@ func (c *WebhookController) ListWebhook(webhookType models.WebhookType) error {
 		return fmt.Errorf("erro ao listar webhooks: %v", err)
 	}
 
-	// Se retornou 200, mostra os dados do webhook
 	if response.Code == 200 {
 		fmt.Printf("📋 Webhook %s configurado:\n", webhookType)
 		fmt.Printf("📊 URL: %v\n", response.Data["webhookUrl"])
@@ -93,7 +88,6 @@ func (c *WebhookController) ListWebhook(webhookType models.WebhookType) error {
 	return nil
 }
 
-// ValidateWebhookType valida se o tipo de webhook é válido
 func (c *WebhookController) ValidateWebhookType(webhookType string) (models.WebhookType, error) {
 	switch webhookType {
 	case "charge":

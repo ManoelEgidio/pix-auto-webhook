@@ -9,11 +9,9 @@ import (
 
 	"pix_cli/controllers"
 	"pix_cli/services"
-	"pix_cli/utils"
 )
 
 func main() {
-	// Configura log
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	os.Setenv("GODEBUG", "x509negativeserial=1")
@@ -45,24 +43,6 @@ func main() {
 		if err := server.Start(); err != nil {
 			log.Fatal("Erro ao iniciar servidor:", err)
 		}
-	} else {
-		if err := utils.ValidateRequiredEnv(); err != nil {
-			utils.PrintError(err.Error())
-		}
-
-		credentials, err := services.LoadCredentials()
-		if err != nil {
-			utils.PrintError(err.Error())
-		}
-
-		efiService, err := services.NewEFIService(credentials)
-		if err != nil {
-			utils.PrintError("Erro ao inicializar serviço EFI: " + err.Error())
-		}
-
-		controller := controllers.NewWebhookController(efiService)
-
-		showMenu(controller)
 	}
 }
 

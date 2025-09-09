@@ -35,14 +35,19 @@ export default function Home() {
     const initializeApp = async () => {
       setInitialLoading(true)
       try {
+        const storedEnv = typeof window !== 'undefined' ? window.localStorage.getItem('pix_env') : null
+        const initialEnv: 'sandbox' | 'production' = storedEnv === 'production' ? 'production' : 'sandbox'
+
+        setCredentials({ sandbox: initialEnv === 'sandbox' })
+        await apiClient.reloadService(initialEnv)
+
         await Promise.all([
           loadSystemStatus(),
-          loadWebhooks(),
-          loadCredentials(),
-          checkCertificateStatus()
+          loadWebhooksWithEnv(initialEnv),
+          loadCredentialsWithEnv(initialEnv),
+          checkCertificateStatusWithEnv(initialEnv)
         ])
       } catch (error) {
-        console.error('Erro ao inicializar:', error)
       } finally {
         setInitialLoading(false)
       }
@@ -57,16 +62,13 @@ export default function Home() {
       if (response.success) {
         setSystemStatus({
           backend: 'online',
-          efi: response.data?.services?.efi === 'connected' ? 'online' : 'offline'
+          efi: response.data?.services?.efi === 'online' ? 'online' : 'offline'
         })
       }
-    } catch (error) {
-      console.error('Erro ao carregar status:', error)
-    }
+    } catch (error) {}
   }
 
   const loadWebhooks = async () => {
-    // Limpa a lista antes de carregar
     setWebhooks([])
     
     const webhookList: WebhookConfig[] = []
@@ -183,7 +185,6 @@ export default function Home() {
           description: `Webhook ${type} configurado com sucesso`,
         })
         
-        // Recarrega a lista de webhooks
         await loadWebhooks()
       } else {
         toast({
@@ -216,7 +217,6 @@ export default function Home() {
           description: `Webhook ${id} removido com sucesso`,
         })
         
-        // Recarrega a lista de webhooks
         await loadWebhooks()
       } else {
         toast({
@@ -370,13 +370,13 @@ export default function Home() {
   const handleEnvironmentChange = async (sandbox: boolean) => {
     console.log('🔄 MUDANDO AMBIENTE:', sandbox ? 'sandbox' : 'production')
     
-    // Atualiza o estado ANTES de fazer qualquer requisição
     setCredentials({ sandbox })
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('pix_env', sandbox ? 'sandbox' : 'production')
+    }
     
-    // Limpa a lista de webhooks imediatamente
     setWebhooks([])
     
-    // Recarrega o serviço EFI primeiro com o ambiente correto
     const currentEnv = sandbox ? 'sandbox' : 'production'
     try {
       await apiClient.reloadService(currentEnv)
@@ -384,23 +384,17 @@ export default function Home() {
       console.error('Erro ao recarregar serviço:', error)
     }
     
-    // Recarrega tudo quando mudar o ambiente usando o ambiente correto
     
-    // Recarrega webhooks com o ambiente correto
     await loadWebhooksWithEnv(currentEnv)
     
-    // Recarrega credenciais com o ambiente correto
     await loadCredentialsWithEnv(currentEnv)
     
-    // Recarrega certificado com o ambiente correto
     await checkCertificateStatusWithEnv(currentEnv)
     
-    // Recarrega status do sistema
     await loadSystemStatus()
   }
 
   const loadWebhooksWithEnv = async (env: 'sandbox' | 'production') => {
-    // Limpa a lista antes de carregar
     setWebhooks([])
     
     const webhookList: WebhookConfig[] = []
